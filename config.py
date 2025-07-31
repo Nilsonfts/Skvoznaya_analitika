@@ -30,6 +30,9 @@ GA_CREDENTIALS_JSON = os.getenv('GA_CREDENTIALS_JSON', '')
 GA_MEASUREMENT_ID = os.getenv('GA_MEASUREMENT_ID', '')
 GA_API_SECRET = os.getenv('GA_API_SECRET', '')
 
+# RestoPlace интеграция
+RESTOPLACE_API_KEY = os.getenv('RESTOPLACE_API_KEY', '')
+
 # Telegram ID администраторов и чатов для отчетов
 ADMIN_IDS = [int(x.strip()) for x in os.getenv('ADMIN_IDS', '').split(',') if x.strip()]
 REPORT_CHAT_IDS = [x.strip() for x in os.getenv('REPORT_CHAT_ID', '').split(',') if x.strip()]

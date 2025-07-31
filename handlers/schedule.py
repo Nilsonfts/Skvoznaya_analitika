@@ -12,8 +12,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from config import ADMIN_IDS, ALERTS_CONFIG, EMOJI
+from config import ADMIN_IDS, ALERTS_CONFIG, EMOJI, REPORT_CHAT_IDS
 from services.analytics import AnalyticsService
+from services.reserves_updater import ReservesUpdateService
 from utils.formatters import format_currency, format_percentage
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,36 @@ class SchedulerService:
                 
         except Exception as e:
             logger.error(f"Error in hourly_update: {e}")
+    
+    async def hourly_reserves_update(self):
+        """Ежечасное обновление резервов RestoPlace"""
+        try:
+            logger.info("Выполняю ежечасное обновление резервов RestoPlace")
+            
+            updater = ReservesUpdateService()
+            stats = await updater.update_reserves_data()
+            
+            # Отправляем краткий отчёт в чат отчётов, только если есть изменения
+            if not stats.get('error') and (stats.get('reserves_updated', 0) > 0 or stats.get('guests_updated', 0) > 0):
+                brief_message = f"""
+{EMOJI['update']} **Обновление RestoPlace**
+
+📊 Резервов: {stats.get('reserves_updated', 0)}
+👥 Гостей: {stats.get('guests_updated', 0)}
+⏰ {datetime.now().strftime('%H:%M')}
+"""
+                await self._send_to_report_chats(brief_message)
+            elif stats.get('error'):
+                error_message = f"""
+{EMOJI['error']} **Ошибка обновления RestoPlace**
+
+{stats['error']}
+⏰ {datetime.now().strftime('%H:%M')}
+"""
+                await self._send_to_admins(error_message)
+                
+        except Exception as e:
+            logger.error(f"Error in hourly_reserves_update: {e}")
     
     async def daily_report(self):
         """Ежедневный отчёт в 9:00"""
@@ -210,6 +241,18 @@ ROI: {format_percentage(alert['roi'])}
             except Exception as e:
                 logger.error(f"Failed to send message to admin {admin_id}: {e}")
     
+    async def _send_to_report_chats(self, message: str):
+        """Отправка сообщения в чаты отчётов"""
+        for chat_id in REPORT_CHAT_IDS:
+            try:
+                await self.application.bot.send_message(
+                    chat_id=chat_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+            except Exception as e:
+                logger.error(f"Failed to send message to report chat {chat_id}: {e}")
+    
     def start(self):
         """Запуск планировщика"""
         try:
@@ -219,6 +262,14 @@ ROI: {format_percentage(alert['roi'])}
                 trigger=IntervalTrigger(hours=1),
                 id='hourly_update',
                 name='Ежечасное обновление лидов'
+            )
+            
+            # Ежечасное обновление резервов RestoPlace
+            self.scheduler.add_job(
+                self.hourly_reserves_update,
+                trigger=IntervalTrigger(hours=1),
+                id='hourly_reserves_update',
+                name='Ежечасное обновление резервов RestoPlace'
             )
             
             # Ежедневный отчёт в 9:00 МСК

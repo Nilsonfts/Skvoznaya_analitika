@@ -2,6 +2,7 @@
 Обработчики команд Telegram-бота
 """
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from telegram import Update
@@ -9,6 +10,7 @@ from telegram.ext import ContextTypes
 
 from config import EMOJI, ADMIN_IDS
 from services.analytics import AnalyticsService
+from services.reserves_updater import ReservesUpdateService
 from utils.formatters import format_number, format_percentage, format_currency
 
 logger = logging.getLogger(__name__)
@@ -25,11 +27,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 Привет, {user.first_name}! Я помогу вам отслеживать маркетинговые показатели вашего бизнеса.
 
 {EMOJI['info']} **Основные команды:**
-• /report - ежедневный отчёт
-• /channels - анализ каналов привлечения
-• /segments - сегментация клиентов
-• /managers - эффективность менеджеров
-• /help - подробная справка
+• `/report` - ежедневный отчёт
+• `/channels` - анализ каналов привлечения
+• `/segments` - сегментация клиентов
+• `/managers` - эффективность менеджеров
+• `/reserves` - обновление данных RestoPlace (админы)
+• `/help` - подробная справка
 
 {EMOJI['chart_up']} **Что я умею:**
 • Собираю лиды из Google Sheets
@@ -54,6 +57,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 • `/channel <название>` - детальный анализ канала
 • `/segments` - сегментация клиентов
 • `/managers` - эффективность менеджеров
+• `/reserves` - обновление данных RestoPlace (админы)
 
 {EMOJI['chart_up']} **Аналитика:**
 • `/forecast` - прогноз выручки (только админы)
@@ -392,3 +396,54 @@ async def test_metrika_command(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as e:
         logger.error(f"Error in test_metrika_command: {e}")
         await update.message.reply_text(f"{EMOJI['error']} Ошибка при проверке Яндекс.Метрики")
+
+async def reserves_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /reserves - обновление данных RestoPlace (только админы)"""
+    user_id = update.effective_user.id
+    
+    # Проверяем права администратора
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text(f"{EMOJI['error']} Доступ запрещён. Команда только для администраторов.")
+        return
+    
+    try:
+        await update.message.reply_text(f"{EMOJI['clock']} Обновляю данные резервов из RestoPlace...")
+        
+        # Создаём сервис обновления
+        updater = ReservesUpdateService()
+        
+        # Запускаем обновление данных
+        stats = await updater.update_reserves_data()
+        
+        # Формируем и отправляем отчёт
+        summary = updater.get_update_summary(stats)
+        await update.message.reply_text(summary, parse_mode='Markdown')
+        
+    except Exception as e:
+        logger.error(f"Error in reserves_command: {e}")
+        await update.message.reply_text(f"{EMOJI['error']} Ошибка при обновлении данных резервов: {str(e)}")
+
+async def auto_reserves_update():
+    """Автоматическое обновление резервов для расписания"""
+    try:
+        logger.info("Запуск автоматического обновления резервов RestoPlace")
+        
+        updater = ReservesUpdateService()
+        stats = await updater.update_reserves_data()
+        
+        # Отправляем краткий отчёт в чат отчётов
+        summary = updater.get_update_summary(stats)
+        
+        # Импортируем здесь, чтобы избежать циклических импортов
+        from config import REPORT_CHAT_IDS
+        
+        if REPORT_CHAT_IDS:
+            # Отправляем в первый чат из списка
+            # TODO: Здесь нужно будет добавить логику отправки через bot instance
+            logger.info(f"Автообновление завершено: {stats}")
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Ошибка автоматического обновления резервов: {e}")
+        return {'error': str(e)}

@@ -23,7 +23,7 @@ from config import BOT_TOKEN, ADMIN_IDS, DEBUG_MODE, LOG_LEVEL
 from handlers.commands import (
     start_command, help_command, report_command, channels_command,
     segments_command, managers_command, update_command, forecast_command,
-    alerts_command, test_metrika_command, channel_command
+    alerts_command, test_metrika_command, channel_command, reserves_command
 )
 from handlers.schedule import setup_scheduler
 from services.analytics import AnalyticsService
@@ -134,6 +134,7 @@ def main() -> None:
     application.add_handler(CommandHandler("alerts", alerts_command))
     application.add_handler(CommandHandler("test_metrika", test_metrika_command))
     application.add_handler(CommandHandler("channel", channel_command))
+    application.add_handler(CommandHandler("reserves", reserves_command))
     
     # Обработчик неизвестных команд
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
