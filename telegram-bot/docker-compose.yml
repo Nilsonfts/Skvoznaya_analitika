@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build: .
+    container_name: evgenich-analytics-bot
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - ADMIN_IDS=${ADMIN_IDS}
+      - GOOGLE_CREDENTIALS_FILE=/app/credentials.json
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    volumes:
+      - ./credentials.json:/app/credentials.json:ro
+      - ./charts:/app/charts
+      - ./logs:/app/logs
+    depends_on:
+      - redis
+    networks:
+      - bot-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: evgenich-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - bot-network
+    ports:
+      - "6379:6379"
+
+volumes:
+  redis-data:
+
+networks:
+  bot-network:
+    driver: bridge
