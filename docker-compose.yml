@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  telegram-bot:
+  analytics-bot:
     build: .
     container_name: evgenich-analytics-bot
     restart: unless-stopped

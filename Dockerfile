@@ -1,50 +1,37 @@
-# Build stage
-FROM python:3.12-slim as builder
+FROM python:3.11-slim
 
-WORKDIR /app
-
-# Install build dependencies
+# Установка системных зависимостей
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    libffi-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY telegram-bot/requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
-
-# Production stage
-FROM python:3.12-slim
-
+# Создание рабочей директории
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Копирование файлов зависимостей
+COPY requirements.txt .
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
+# Установка Python зависимостей
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY telegram-bot/ ./telegram-bot/
+# Копирование исходного кода
+COPY . .
 
-# Set environment variables
-ENV PYTHONPATH=/app/telegram-bot
+# Создание директории для графиков
+RUN mkdir -p charts
+
+# Создание директории для логов
+RUN mkdir -p logs
+
+# Переменные окружения
+ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
-ENV PATH=/root/.local/bin:$PATH
 
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash app
-RUN chown -R app:app /app
-USER app
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Expose port (if needed for health checks)
+# Порт для healthcheck (если нужен)
 EXPOSE 8000
 
-# Start the bot
-CMD ["python", "telegram-bot/bot.py"]
+# Команда запуска
+CMD ["python", "bot.py"]

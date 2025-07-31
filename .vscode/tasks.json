@@ -4,7 +4,7 @@
 		{
 			"label": "Запуск Telegram-бота",
 			"type": "shell",
-			"command": "cd telegram-bot && python bot.py",
+			"command": "python bot.py",
 			"group": "build",
 			"isBackground": false,
 			"problemMatcher": []
