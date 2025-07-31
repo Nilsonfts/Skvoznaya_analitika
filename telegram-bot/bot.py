@@ -6,7 +6,10 @@ Telegram-бот для маркетинговой аналитики "Евген
 
 import logging
 import asyncio
+import json
 from datetime import datetime, time
+from threading import Thread
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import (
     Application, 
@@ -40,6 +43,36 @@ logger = logging.getLogger(__name__)
 if DEBUG_MODE:
     logger.setLevel(logging.DEBUG)
     logger.debug("Debug mode enabled")
+
+# Health check server
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            health_data = {
+                'status': 'healthy',
+                'timestamp': datetime.now().isoformat(),
+                'service': 'telegram-analytics-bot'
+            }
+            self.wfile.write(json.dumps(health_data).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def log_message(self, format, *args):
+        # Подавляем логи health check
+        pass
+
+def start_health_server():
+    """Запуск HTTP сервера для health check"""
+    try:
+        server = HTTPServer(('0.0.0.0', 8000), HealthCheckHandler)
+        logger.info("Health check server started on port 8000")
+        server.serve_forever()
+    except Exception as e:
+        logger.error(f"Ошибка запуска health check сервера: {e}")
 
 # Глобальный объект сервиса аналитики
 analytics_service = None
@@ -110,6 +143,10 @@ def main() -> None:
     
     # Настройка планировщика задач
     setup_scheduler(application)
+    
+    # Запуск health check сервера в отдельном потоке
+    health_thread = Thread(target=start_health_server, daemon=True)
+    health_thread.start()
     
     logger.info("🚀 Telegram-бот 'Евгенич СПБ' запущен")
     

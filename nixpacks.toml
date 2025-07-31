@@ -1,0 +1,20 @@
+[phases.setup]
+nixPkgs = ['python312', 'gcc', 'pkg-config']
+
+[phases.install]
+cmds = [
+    'cd telegram-bot',
+    'pip install -r requirements.txt'
+]
+
+[phases.build]
+cmds = [
+    'echo "Build phase completed"'
+]
+
+[start]
+cmd = 'cd telegram-bot && python bot.py'
+
+[variables]
+PYTHONPATH = '/app/telegram-bot'
+PYTHONUNBUFFERED = '1'
