@@ -25,7 +25,8 @@ from handlers.commands import (
     segments_command, managers_command, update_command, forecast_command,
     alerts_command, test_metrika_command, channel_command, reserves_command,
     channels_chart_command, segments_chart_command, compare_channels_command,
-    status_command, test_google_sheets_command, test_all_connections_command
+    status_command, test_google_sheets_command, test_all_connections_command,
+    get_my_id_command
 )
 from handlers.callbacks import button_callback_handler, message_handler
 from handlers.schedule import setup_scheduler
@@ -131,6 +132,7 @@ def main() -> None:
     # Регистрация обработчиков команд
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("id", get_my_id_command))
     application.add_handler(CommandHandler("report", report_command))
     application.add_handler(CommandHandler("channels", channels_command))
     application.add_handler(CommandHandler("channels_chart", channels_chart_command))

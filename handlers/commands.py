@@ -25,10 +25,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     from handlers.keyboards import get_main_menu
     
     user = update.effective_user
+    user_id = user.id
+    
+    # Показываем ID пользователя (полезно для настройки админов)
     welcome_text = f"""
 🎤 **Добро пожаловать в "Евгенич СПБ"!**
 
 Привет, {user.first_name}! Я аналитический бот караоке-рюмочной.
+👤 Ваш Telegram ID: `{user_id}`
 
 ✨ **Что я умею:**
 • 📊 Генерирую отчёты и аналитику
@@ -554,6 +558,37 @@ async def test_all_connections_command(update: Update, context: ContextTypes.DEF
     except Exception as e:
         logger.error(f"Error in test_all_connections_command: {e}")
         await update.message.reply_text(f"{EMOJI['error']} Ошибка при проверке подключений")
+
+async def get_my_id_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /id - получить свой Telegram ID"""
+    user = update.effective_user
+    user_id = user.id
+    username = user.username or "не указан"
+    first_name = user.first_name or "не указано"
+    
+    # Проверяем, является ли пользователь админом
+    is_admin = user_id in ADMIN_IDS
+    admin_status = "✅ ДА" if is_admin else "❌ НЕТ"
+    
+    id_info = f"""
+👤 **ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ**
+
+• **Telegram ID**: `{user_id}`
+• **Имя**: {first_name}
+• **Username**: @{username}
+• **Админ**: {admin_status}
+
+📋 **Для настройки прав администратора:**
+Добавьте ваш ID `{user_id}` в переменную окружения `ADMIN_IDS` на Railway:
+`ADMIN_IDS={user_id}`
+
+Или для нескольких админов:
+`ADMIN_IDS={user_id},987654321,123456789`
+
+🔧 **Текущие админы**: {len(ADMIN_IDS)} человек
+"""
+    
+    await update.message.reply_text(id_info, parse_mode='Markdown')
 
 async def reserves_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /reserves - обновление данных RestoPlace (только админы)"""

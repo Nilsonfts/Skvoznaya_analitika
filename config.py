@@ -35,6 +35,13 @@ RESTOPLACE_API_KEY = os.getenv('RESTOPLACE_API_KEY', '')
 
 # Telegram ID администраторов и чатов для отчетов
 ADMIN_IDS = [int(x.strip()) for x in os.getenv('ADMIN_IDS', '').split(',') if x.strip()]
+
+# Если администраторы не настроены, добавляем fallback
+if not ADMIN_IDS:
+    # Добавьте сюда свой реальный Telegram ID
+    ADMIN_IDS = [123456789]  # Замените на ваш реальный ID
+    print("⚠️  ADMIN_IDS не настроен, используется fallback админ")
+
 REPORT_CHAT_IDS = [x.strip() for x in os.getenv('REPORT_CHAT_ID', '').split(',') if x.strip()]
 SMM_IDS = [int(x.strip()) for x in os.getenv('SMM_IDS', '').split(',') if x.strip()]
 
