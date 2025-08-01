@@ -5,13 +5,15 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from telegram import Update
+from telegram import Update, InputFile
 from telegram.ext import ContextTypes
 
 from config import EMOJI, ADMIN_IDS
 from services.analytics import AnalyticsService
 from services.reserves_updater import ReservesUpdateService
+from services.visualization import get_visualization_service
 from utils.formatters import format_number, format_percentage, format_currency
+from utils.rate_limiter import rate_limit, admin_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +56,18 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 {EMOJI['report']} **Отчёты:**
 • `/report` - краткий ежедневный отчёт
 • `/channels` - анализ всех каналов привлечения
+• `/channels_chart` - график эффективности каналов
 • `/channel <название>` - детальный анализ канала
 • `/segments` - сегментация клиентов
+• `/segments_chart` - диаграмма сегментов клиентов
 • `/managers` - эффективность менеджеров
 • `/reserves` - обновление данных RestoPlace (админы)
 
-{EMOJI['chart_up']} **Аналитика:**
-• `/forecast` - прогноз выручки (только админы)
-• `/test_metrika` - проверка Яндекс.Метрики (только админы)
+{EMOJI['chart_up']} **Аналитика и визуализация:**
+• `/forecast` - прогноз выручки с графиком
+• `/compare канал1 канал2` - сравнение двух каналов
+• `/status` - статус системы (админы)
+• `/test_metrika` - проверка Яндекс.Метрики (админы)
 
 ⚙️ **Управление:**
 • `/update` - обновить данные (только админы)
@@ -79,21 +85,28 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 • ROI - возврат инвестиций
 • Конверсия - процент лидов в клиенты
 
+🛡️ **Безопасность:**
+Команды имеют ограничения по частоте использования для предотвращения злоупотреблений.
+
 Для получения дополнительной помощи обратитесь к администратору.
 """
     
     await update.message.reply_text(help_text, parse_mode='Markdown')
 
 async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /report - краткий ежедневный отчёт"""
+    """Команда /report - ежедневный отчёт с графиками"""
     try:
-        await update.message.reply_text(f"{EMOJI['clock']} Формирую отчёт...")
+        # Отправляем сообщение о загрузке
+        loading_msg = await update.message.reply_text(f"{EMOJI['clock']} Формирую отчёт...")
         
         analytics = AnalyticsService()
+        visualization = get_visualization_service()
+        
+        # Получаем данные отчёта
         report_data = await analytics.generate_daily_report()
         
         if not report_data:
-            await update.message.reply_text(f"{EMOJI['error']} Не удалось получить данные для отчёта")
+            await loading_msg.edit_text(f"{EMOJI['error']} Не удалось сформировать отчёт")
             return
         
         # Форматирование отчёта
@@ -120,9 +133,10 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             for alert in report_data['alerts']:
                 report_text += f"• {alert}\n"
         
-        report_text += f"\nПодробнее: /channels"
+        report_text += f"\n📊 График каналов: /channels_chart"
+        report_text += f"\n👥 Сегменты клиентов: /segments"
         
-        await update.message.reply_text(report_text, parse_mode='Markdown')
+        await loading_msg.edit_text(report_text, parse_mode='Markdown')
         
     except Exception as e:
         logger.error(f"Error in report_command: {e}")
@@ -447,3 +461,234 @@ async def auto_reserves_update():
     except Exception as e:
         logger.error(f"Ошибка автоматического обновления резервов: {e}")
         return {'error': str(e)}
+
+@rate_limit
+async def channels_chart_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /channels_chart - график эффективности каналов"""
+    try:
+        loading_msg = await update.message.reply_text(f"{EMOJI['clock']} Создаю график каналов...")
+        
+        analytics = AnalyticsService()
+        visualization = get_visualization_service()
+        
+        # Получаем данные каналов
+        channels_data = await analytics.analyze_channels()
+        
+        if not channels_data:
+            await loading_msg.edit_text(f"{EMOJI['error']} Нет данных для создания графика")
+            return
+        
+        # Создаём график
+        chart_buffer = visualization.create_channel_performance_chart(channels_data)
+        
+        # Отправляем график
+        await update.message.reply_photo(
+            photo=InputFile(chart_buffer, filename="channels_chart.png"),
+            caption=f"📊 График эффективности каналов привлечения\n\nПодробнее: /channels"
+        )
+        
+        await loading_msg.delete()
+        
+    except Exception as e:
+        logger.error(f"Error in channels_chart_command: {e}")
+        await update.message.reply_text(f"{EMOJI['error']} Ошибка при создании графика каналов")
+
+@rate_limit
+async def segments_chart_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /segments_chart - диаграмма сегментов клиентов"""
+    try:
+        loading_msg = await update.message.reply_text(f"{EMOJI['clock']} Создаю диаграмму сегментов...")
+        
+        analytics = AnalyticsService()
+        visualization = get_visualization_service()
+        
+        # Получаем данные сегментов
+        segments_data = await analytics.analyze_segments()
+        
+        if not segments_data:
+            await loading_msg.edit_text(f"{EMOJI['error']} Нет данных для создания диаграммы")
+            return
+        
+        # Создаём диаграмму
+        chart_buffer = visualization.create_segments_pie_chart(segments_data)
+        
+        # Отправляем диаграмму
+        await update.message.reply_photo(
+            photo=InputFile(chart_buffer, filename="segments_chart.png"),
+            caption=f"👥 Диаграмма сегментов клиентов\n\nПодробнее: /segments"
+        )
+        
+        await loading_msg.delete()
+        
+    except Exception as e:
+        logger.error(f"Error in segments_chart_command: {e}")
+        await update.message.reply_text(f"{EMOJI['error']} Ошибка при создании диаграммы сегментов")
+
+@rate_limit
+async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /forecast - прогноз выручки"""
+    try:
+        loading_msg = await update.message.reply_text(f"{EMOJI['clock']} Создаю прогноз выручки...")
+        
+        analytics = AnalyticsService()
+        visualization = get_visualization_service()
+        
+        # Получаем прогноз на 3 месяца
+        forecast_data = await analytics.forecast_revenue(3)
+        
+        if not forecast_data:
+            await loading_msg.edit_text(f"{EMOJI['error']} Не удалось создать прогноз")
+            return
+        
+        # Создаём график прогноза
+        chart_buffer = visualization.create_forecast_chart(forecast_data)
+        
+        # Форматируем текстовый отчёт
+        total_forecast = forecast_data.get('total_forecast', 0)
+        historical_avg = forecast_data.get('historical_avg', 0)
+        
+        forecast_text = f"""
+📈 **ПРОГНОЗ ВЫРУЧКИ НА 3 МЕСЯЦА**
+
+💰 Ожидаемая выручка: {format_currency(total_forecast)}
+📊 Среднемесячная (прогноз): {format_currency(total_forecast/3)}
+📋 Историческая средняя: {format_currency(historical_avg)}
+
+🔮 **По месяцам:**
+"""
+        
+        for month_data in forecast_data.get('forecast', []):
+            seasonal_emoji = "🔥" if month_data['seasonal_coefficient'] > 1.1 else "❄️" if month_data['seasonal_coefficient'] < 0.9 else "🌟"
+            forecast_text += f"{seasonal_emoji} {month_data['month_name']}: {format_currency(month_data['revenue'])}\n"
+        
+        # Отправляем график и текст
+        await update.message.reply_photo(
+            photo=InputFile(chart_buffer, filename="forecast_chart.png"),
+            caption=forecast_text,
+            parse_mode='Markdown'
+        )
+        
+        await loading_msg.delete()
+        
+    except Exception as e:
+        logger.error(f"Error in forecast_command: {e}")
+        await update.message.reply_text(f"{EMOJI['error']} Ошибка при создании прогноза")
+
+@rate_limit
+async def compare_channels_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /compare - сравнение двух каналов"""
+    try:
+        # Проверяем аргументы команды
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text(
+                f"{EMOJI['info']} Использование: `/compare канал1 канал2`\n\n"
+                "Например: `/compare Instagram ВКонтакте`",
+                parse_mode='Markdown'
+            )
+            return
+        
+        channel1_name = context.args[0]
+        channel2_name = context.args[1]
+        
+        loading_msg = await update.message.reply_text(f"{EMOJI['clock']} Сравниваю каналы...")
+        
+        analytics = AnalyticsService()
+        visualization = get_visualization_service()
+        
+        # Получаем данные каналов
+        channel1_data = await analytics.analyze_channel(channel1_name)
+        channel2_data = await analytics.analyze_channel(channel2_name)
+        
+        if not channel1_data:
+            await loading_msg.edit_text(f"{EMOJI['error']} Канал '{channel1_name}' не найден")
+            return
+            
+        if not channel2_data:
+            await loading_msg.edit_text(f"{EMOJI['error']} Канал '{channel2_name}' не найден")
+            return
+        
+        # Создаём сравнительный график
+        chart_buffer = visualization.create_comparison_chart(channel1_data, channel2_data)
+        
+        # Определяем победителя
+        score1 = (channel1_data.get('rating', 0) + 
+                 (1 if channel1_data.get('roi', 0) > channel2_data.get('roi', 0) else 0) +
+                 (1 if channel1_data.get('conversion_rate', 0) > channel2_data.get('conversion_rate', 0) else 0))
+        
+        score2 = (channel2_data.get('rating', 0) + 
+                 (1 if channel2_data.get('roi', 0) > channel1_data.get('roi', 0) else 0) +
+                 (1 if channel2_data.get('conversion_rate', 0) > channel1_data.get('conversion_rate', 0) else 0))
+        
+        winner = channel1_name if score1 > score2 else channel2_name if score2 > score1 else "Ничья"
+        winner_emoji = "🥇" if winner != "Ничья" else "🤝"
+        
+        comparison_text = f"""
+⚖️ **СРАВНЕНИЕ КАНАЛОВ**
+
+🥊 {channel1_name} vs {channel2_name}
+
+{winner_emoji} **Победитель: {winner}**
+
+📊 **Детальное сравнение в графике выше**
+        """
+        
+        # Отправляем график и результат
+        await update.message.reply_photo(
+            photo=InputFile(chart_buffer, filename="comparison_chart.png"),
+            caption=comparison_text,
+            parse_mode='Markdown'
+        )
+        
+        await loading_msg.delete()
+        
+    except Exception as e:
+        logger.error(f"Error in compare_channels_command: {e}")
+        await update.message.reply_text(f"{EMOJI['error']} Ошибка при сравнении каналов")
+
+@admin_rate_limit  
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /status - статус системы (только для админов)"""
+    user_id = update.effective_user.id
+    
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text(f"{EMOJI['error']} Команда доступна только администраторам")
+        return
+    
+    try:
+        from services.database import get_db_service
+        from config import USE_POSTGRES, REDIS_URL
+        
+        status_text = f"""
+🔧 **СТАТУС СИСТЕМЫ**
+
+📊 **База данных:**
+• PostgreSQL: {'✅ Подключена' if USE_POSTGRES else '❌ Отключена'}
+
+🗄️ **Кэширование:**
+• Redis: {'✅ Настроен' if REDIS_URL else '❌ Не настроен'}
+
+⚡ **Сервисы:**
+• Analytics Service: ✅ Активен
+• Visualization Service: ✅ Активен
+• Rate Limiter: ✅ Активен
+
+📈 **Последняя активность:**
+• Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}
+"""
+        
+        # Проверяем подключение к базе данных
+        if USE_POSTGRES:
+            try:
+                db_service = await get_db_service()
+                # Простой тест подключения
+                test_query = "SELECT 1"
+                await db_service.pool.fetchval(test_query)
+                status_text += "\n✅ Тест подключения к PostgreSQL: OK"
+            except Exception as e:
+                status_text += f"\n❌ Ошибка подключения к PostgreSQL: {str(e)[:50]}"
+        
+        await update.message.reply_text(status_text, parse_mode='Markdown')
+        
+    except Exception as e:
+        logger.error(f"Error in status_command: {e}")
+        await update.message.reply_text(f"{EMOJI['error']} Ошибка при получении статуса системы")

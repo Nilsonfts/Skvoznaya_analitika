@@ -23,10 +23,13 @@ from config import BOT_TOKEN, ADMIN_IDS, DEBUG_MODE, LOG_LEVEL
 from handlers.commands import (
     start_command, help_command, report_command, channels_command,
     segments_command, managers_command, update_command, forecast_command,
-    alerts_command, test_metrika_command, channel_command, reserves_command
+    alerts_command, test_metrika_command, channel_command, reserves_command,
+    channels_chart_command, segments_chart_command, compare_channels_command,
+    status_command
 )
 from handlers.schedule import setup_scheduler
 from services.analytics import AnalyticsService
+from utils.error_handler import error_handler
 
 # Настройка логирования
 log_level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
@@ -127,14 +130,18 @@ def main() -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("report", report_command))
     application.add_handler(CommandHandler("channels", channels_command))
+    application.add_handler(CommandHandler("channels_chart", channels_chart_command))
     application.add_handler(CommandHandler("segments", segments_command))
+    application.add_handler(CommandHandler("segments_chart", segments_chart_command))
     application.add_handler(CommandHandler("managers", managers_command))
     application.add_handler(CommandHandler("update", update_command))
     application.add_handler(CommandHandler("forecast", forecast_command))
+    application.add_handler(CommandHandler("compare", compare_channels_command))
     application.add_handler(CommandHandler("alerts", alerts_command))
     application.add_handler(CommandHandler("test_metrika", test_metrika_command))
     application.add_handler(CommandHandler("channel", channel_command))
     application.add_handler(CommandHandler("reserves", reserves_command))
+    application.add_handler(CommandHandler("status", status_command))
     
     # Обработчик неизвестных команд
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))

@@ -42,6 +42,16 @@ SMM_IDS = [int(x.strip()) for x in os.getenv('SMM_IDS', '').split(',') if x.stri
 USE_POSTGRES = os.getenv('USE_POSTGRES', 'false').lower() == 'true'
 DATABASE_URL = os.getenv('DATABASE_URL', '')
 
+# Настройки Redis и кэширования
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
+REDIS_DB = int(os.getenv('REDIS_DB', '0'))
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
+REDIS_URL = os.getenv('REDIS_URL', f'redis://{":" + REDIS_PASSWORD + "@" if REDIS_PASSWORD else ""}{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
+
+# Rate Limiting
+RATE_LIMIT_PER_MINUTE = int(os.getenv('RATE_LIMIT_PER_MINUTE', '10'))
+
 # Настройки расписания и уведомлений
 DAILY_REPORT_TIME = os.getenv('DAILY_REPORT_TIME', '09:00')
 WEEKLY_REPORT_DAY = os.getenv('WEEKLY_REPORT_DAY', 'monday')

@@ -1,15 +1,17 @@
 {
-  "name": "Telegram Bot для Маркетинговой Аналитики",
-  "description": "Профессиональный Telegram-бот для автоматизации маркетинговой аналитики. Интегрируется с Google Sheets, Яндекс.Метрикой для анализа эффективности каналов привлечения.",
+  "name": "Караоке-Рюмочная Евгенич СПБ - Аналитика",
+  "description": "Система аналитики для караоке-рюмочной 'Евгенич СПБ' с Telegram-ботом. PostgreSQL, Redis, визуализация, прогнозирование выручки с учётом сезонности развлекательного бизнеса.",
   "tags": [
     "telegram",
-    "bot",
+    "bot", 
     "analytics",
-    "marketing", 
-    "google-sheets",
-    "yandex-metrika",
+    "karaoke",
+    "entertainment",
+    "postgresql",
+    "redis",
+    "visualization",
     "python",
-    "crm"
+    "forecasting"
   ],
   "repository": "https://github.com/Nilsonfts/Skvoznaya_analitika",
   "plugins": [
@@ -20,30 +22,43 @@
       "id": "redis"
     }
   ],
-  "buildCommand": "cd telegram-bot && pip install -r requirements.txt",
-  "startCommand": "cd telegram-bot && python bot.py",
+  "buildCommand": "pip install -r requirements.txt",
+  "startCommand": "python bot.py",
   "variables": {
     "BOT_TOKEN": {
       "description": "Токен Telegram бота от @BotFather",
       "required": true
     },
-    "GOOGLE_CREDENTIALS_JSON": {
-      "description": "JSON ключ сервисного аккаунта Google API",
-      "required": true
-    },
-    "SPREADSHEET_ID": {
-      "description": "ID основной Google таблицы",
-      "required": true,
-      "default": "1QL1CRY3M9Av-WlDS5gswA2Lq14OPdt0TME_dpwPIuC4"
-    },
     "ADMIN_IDS": {
       "description": "ID администраторов Telegram через запятую",
-      "required": false,
-      "default": "123456789,987654321"
+      "required": true,
+      "default": "123456789"
     },
     "REPORT_CHAT_ID": {
       "description": "ID чатов для автоматических отчётов",
       "required": false
+    },
+    "USE_POSTGRES": {
+      "description": "Использовать PostgreSQL для хранения данных",
+      "required": false,
+      "default": "true"
+    },
+    "DATABASE_URL": {
+      "description": "URL подключения к PostgreSQL (автоматически от Railway)",
+      "required": false
+    },
+    "REDIS_URL": {
+      "description": "URL подключения к Redis (автоматически от Railway)", 
+      "required": false
+    },
+    "GOOGLE_CREDENTIALS_JSON": {
+      "description": "JSON ключ сервисного аккаунта Google API (опционально)",
+      "required": false
+    },
+    "SPREADSHEET_ID": {
+      "description": "ID основной Google таблицы (fallback)",
+      "required": false,
+      "default": "1QL1CRY3M9Av-WlDS5gswA2Lq14OPdt0TME_dpwPIuC4"
     },
     "METRIKA_COUNTER_ID": {
       "description": "ID счётчика Яндекс.Метрики",
@@ -54,19 +69,19 @@
       "description": "OAuth токен Яндекс.Метрики",
       "required": false
     },
-    "GA_PROPERTY_ID": {
-      "description": "ID свойства Google Analytics",
+    "RESTOPLACE_API_KEY": {
+      "description": "API ключ RestoPlace для обновления резервов",
       "required": false
-    },
-    "USE_POSTGRES": {
-      "description": "Использовать PostgreSQL для хранения данных",
-      "required": false,
-      "default": "false"
     },
     "DEBUG_MODE": {
       "description": "Режим отладки",
       "required": false,
       "default": "false"
+    },
+    "LOG_LEVEL": {
+      "description": "Уровень логирования (DEBUG, INFO, WARNING, ERROR)",
+      "required": false,
+      "default": "INFO"
     },
     "TIMEZONE": {
       "description": "Часовой пояс",

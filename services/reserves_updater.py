@@ -114,8 +114,9 @@ class ReservesUpdateService:
             Объединённый список резервов
         """
         # Создаём множество ID свежих резервов для быстрого поиска
-        async with RestoPlaceService() as rp_service:
-            formatted_fresh = [rp_service.format_reserve_data(reserve) for reserve in fresh_reserves]
+        # Форматируем свежие данные без async context (данные уже получены)
+        rp_service = RestoPlaceService()
+        formatted_fresh = [rp_service.format_reserve_data(reserve) for reserve in fresh_reserves]
         
         fresh_ids = {str(reserve.get('id', '')) for reserve in formatted_fresh}
         
