@@ -49,6 +49,11 @@ REDIS_DB = int(os.getenv('REDIS_DB', '0'))
 REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
 REDIS_URL = os.getenv('REDIS_URL', f'redis://{":" + REDIS_PASSWORD + "@" if REDIS_PASSWORD else ""}{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
 
+# Обработка Railway Redis URL
+if 'REDIS_URL' in os.environ and not REDIS_URL.startswith('redis://'):
+    # Railway может предоставить URL в другом формате
+    REDIS_URL = os.environ['REDIS_URL']
+
 # Rate Limiting
 RATE_LIMIT_PER_MINUTE = int(os.getenv('RATE_LIMIT_PER_MINUTE', '10'))
 

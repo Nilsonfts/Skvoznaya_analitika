@@ -8,8 +8,8 @@ import json
 import pickle
 from typing import Any, Optional, Union
 from datetime import datetime, timedelta
-
-from config import REDIS_CONFIG
+from urllib.parse import urlparse
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +17,22 @@ class CacheService:
     def __init__(self):
         """Инициализация сервиса кеширования"""
         try:
-            self.redis_client = redis.Redis(
-                host=REDIS_CONFIG['host'],
-                port=REDIS_CONFIG['port'],
-                db=REDIS_CONFIG['db'],
-                password=REDIS_CONFIG['password'],
-                decode_responses=False  # Для работы с pickle
-            )
+            # Попытка подключения к Redis
+            redis_url = os.getenv('REDIS_URL')
+            
+            if redis_url:
+                # Подключение через URL (Railway)
+                self.redis_client = redis.from_url(redis_url, decode_responses=False)
+            else:
+                # Подключение через отдельные параметры
+                from config import REDIS_CONFIG
+                self.redis_client = redis.Redis(
+                    host=REDIS_CONFIG['host'],
+                    port=REDIS_CONFIG['port'],
+                    db=REDIS_CONFIG['db'],
+                    password=REDIS_CONFIG['password'],
+                    decode_responses=False  # Для работы с pickle
+                )
             
             # Проверка подключения
             self.redis_client.ping()

@@ -4,11 +4,14 @@
 
 import logging
 import gspread
+import json
+import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import pandas as pd
+from google.oauth2.service_account import Credentials
 
-from config import SPREADSHEET_ID, GOOGLE_CREDENTIALS_FILE, SHEETS_CONFIG, COLORS
+from config import SPREADSHEET_ID, GOOGLE_CREDENTIALS_FILE, GOOGLE_CREDENTIALS_JSON, SHEETS_CONFIG, COLORS
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +19,55 @@ class GoogleSheetsService:
     def __init__(self):
         """Инициализация сервиса Google Sheets"""
         try:
-            self.gc = gspread.service_account(filename=GOOGLE_CREDENTIALS_FILE)
-            self.spreadsheet = self.gc.open_by_key(SPREADSHEET_ID)
-            logger.info("Google Sheets сервис инициализирован")
+            # Пытаемся инициализировать Google Sheets
+            self.gc = None
+            self.spreadsheet = None
+            
+            # Проверяем наличие JSON в переменной окружения
+            if GOOGLE_CREDENTIALS_JSON:
+                try:
+                    # Парсим JSON из переменной окружения
+                    creds_dict = json.loads(GOOGLE_CREDENTIALS_JSON)
+                    scopes = [
+                        'https://www.googleapis.com/auth/spreadsheets',
+                        'https://www.googleapis.com/auth/drive'
+                    ]
+                    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+                    self.gc = gspread.authorize(creds)
+                    logger.info("Google Sheets инициализирован из переменной окружения")
+                except Exception as e:
+                    logger.warning(f"Не удалось инициализировать из переменной окружения: {e}")
+            
+            # Если не получилось из переменной, пытаемся из файла
+            if not self.gc and os.path.exists(GOOGLE_CREDENTIALS_FILE):
+                try:
+                    self.gc = gspread.service_account(filename=GOOGLE_CREDENTIALS_FILE)
+                    logger.info("Google Sheets инициализирован из файла")
+                except Exception as e:
+                    logger.warning(f"Не удалось инициализировать из файла: {e}")
+            
+            # Если Google Sheets недоступен, работаем в режиме fallback
+            if not self.gc:
+                logger.warning("Google Sheets недоступен, сервис работает в режиме fallback")
+                return
+            
+            # Пытаемся открыть таблицу
+            if SPREADSHEET_ID:
+                self.spreadsheet = self.gc.open_by_key(SPREADSHEET_ID)
+                logger.info("Google Sheets сервис полностью инициализирован")
+            else:
+                logger.warning("SPREADSHEET_ID не настроен")
+                
         except Exception as e:
             logger.error(f"Ошибка инициализации Google Sheets: {e}")
-            raise
+            # Не вызываем исключение, позволяем системе работать без Google Sheets
     
     def get_worksheet(self, sheet_name: str, create_if_not_exists: bool = False):
         """Получить рабочий лист по имени"""
+        if not self.gc or not self.spreadsheet:
+            logger.warning(f"Google Sheets недоступен для листа {sheet_name}")
+            return None
+            
         try:
             return self.spreadsheet.worksheet(sheet_name)
         except gspread.WorksheetNotFound:
@@ -34,9 +77,16 @@ class GoogleSheetsService:
             else:
                 logger.error(f"Лист {sheet_name} не найден")
                 return None
+        except Exception as e:
+            logger.error(f"Ошибка при получении листа {sheet_name}: {e}")
+            return None
     
     def read_sheet_data(self, sheet_name: str) -> List[Dict[str, Any]]:
         """Чтение данных из листа"""
+        if not self.gc or not self.spreadsheet:
+            logger.warning(f"Google Sheets недоступен для чтения {sheet_name}")
+            return []
+            
         try:
             worksheet = self.spreadsheet.worksheet(sheet_name)
             
@@ -71,6 +121,65 @@ class GoogleSheetsService:
         except Exception as e:
             logger.error(f"Ошибка при чтении листа {sheet_name}: {e}")
             return []
+    
+    def read_sheet(self, sheet_name: str) -> List[List[str]]:
+        """Чтение данных из листа в формате массива массивов (для совместимости)"""
+        if not self.gc or not self.spreadsheet:
+            logger.warning(f"Google Sheets недоступен для чтения {sheet_name}")
+            return []
+            
+        try:
+            worksheet = self.spreadsheet.worksheet(sheet_name)
+            return worksheet.get_all_values()
+        except Exception as e:
+            logger.error(f"Ошибка при чтении листа {sheet_name}: {e}")
+            return []
+    
+    def clear_sheet(self, sheet_name: str) -> bool:
+        """Очистка листа"""
+        if not self.gc or not self.spreadsheet:
+            logger.warning(f"Google Sheets недоступен для очистки {sheet_name}")
+            return False
+            
+        try:
+            worksheet = self.get_worksheet(sheet_name)
+            if worksheet:
+                worksheet.clear()
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Ошибка при очистке листа {sheet_name}: {e}")
+            return False
+    
+    def write_data(self, sheet_name: str, data: List[List]) -> bool:
+        """Запись данных в лист в формате массива массивов (для совместимости)"""
+        if not self.gc or not self.spreadsheet:
+            logger.warning(f"Google Sheets недоступен для записи в {sheet_name}")
+            return False
+            
+        try:
+            worksheet = self.get_worksheet(sheet_name, create_if_not_exists=True)
+            if not worksheet:
+                return False
+            
+            if data and len(data) > 0:
+                # Определяем диапазон для записи
+                end_col = chr(ord('A') + len(data[0]) - 1)
+                end_row = len(data)
+                range_name = f"A1:{end_col}{end_row}"
+                worksheet.update(range_name, data)
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Ошибка при записи данных в {sheet_name}: {e}")
+            return False
+    
+    @property 
+    def spreadsheet_id(self) -> str:
+        """Получение ID таблицы"""
+        if self.spreadsheet:
+            return self.spreadsheet.id
+        return SPREADSHEET_ID or ""
     
     def write_sheet_data(self, sheet_name: str, data: List[Dict[str, Any]], 
                         clear_existing: bool = True) -> bool:
