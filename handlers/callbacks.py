@@ -53,7 +53,7 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             # Создаём фейковый Update для команды
             fake_update = type('FakeUpdate', (), {
                 'message': type('FakeMessage', (), {
-                    'reply_text': lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+                    'reply_text': lambda self, text, **kwargs: query.edit_message_text(text, **kwargs)
                 })(),
                 'effective_user': update.effective_user
             })()
@@ -63,7 +63,7 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             await query.edit_message_text("📈 Генерирую прогноз выручки...")
             fake_update = type('FakeUpdate', (), {
                 'message': type('FakeMessage', (), {
-                    'reply_text': lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+                    'reply_text': lambda self, text, **kwargs: query.edit_message_text(text, **kwargs)
                 })(),
                 'effective_user': update.effective_user
             })()
@@ -73,7 +73,7 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             await query.edit_message_text("⚖️ Сравниваю каналы...")
             fake_update = type('FakeUpdate', (), {
                 'message': type('FakeMessage', (), {
-                    'reply_text': lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+                    'reply_text': lambda self, text, **kwargs: query.edit_message_text(text, **kwargs)
                 })(),
                 'effective_user': update.effective_user
             })()
@@ -83,7 +83,7 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             await query.edit_message_text("📊 Проверяю статус системы...")
             fake_update = type('FakeUpdate', (), {
                 'message': type('FakeMessage', (), {
-                    'reply_text': lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+                    'reply_text': lambda self, text, **kwargs: query.edit_message_text(text, **kwargs)
                 })(),
                 'effective_user': update.effective_user
             })()
@@ -101,8 +101,8 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             await query.edit_message_text("📊 Создаю график каналов...")
             fake_update = type('FakeUpdate', (), {
                 'message': type('FakeMessage', (), {
-                    'reply_text': lambda text, **kwargs: query.edit_message_text(text, **kwargs),
-                    'reply_photo': lambda photo, **kwargs: query.message.reply_photo(photo, **kwargs)
+                    'reply_text': lambda self, text, **kwargs: query.edit_message_text(text, **kwargs),
+                    'reply_photo': lambda self, photo, **kwargs: query.message.reply_photo(photo, **kwargs)
                 })(),
                 'effective_user': update.effective_user
             })()
