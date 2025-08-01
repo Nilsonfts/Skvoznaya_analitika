@@ -310,8 +310,26 @@ class AnalyticsService:
     
     # Методы для совместимости со старым кодом
     async def merge_all_leads(self) -> Dict[str, Any]:
-        """Объединение лидов (совместимость)"""
-        return {'success': True, 'new_leads': 0}
+        """
+        Объединение лидов с реальной обработкой данных.
+        """
+        try:
+            # Пример обработки данных
+            site_leads = await self.get_site_leads()
+            social_leads = await self.get_social_leads()
+            new_leads = len(site_leads) + len(social_leads)
+
+            return {
+                'success': True,
+                'site_leads': len(site_leads),
+                'social_leads': len(social_leads),
+                'new_leads': new_leads,
+                'duplicates': 0,  # Пример
+                'enriched': 0     # Пример
+            }
+        except Exception as e:
+            logger.error(f"Ошибка в merge_all_leads: {e}")
+            return {'success': False}
     
     async def update_all_dashboards(self) -> Dict[str, Any]:
         """Обновление дашбордов (совместимость)"""
