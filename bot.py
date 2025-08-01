@@ -27,6 +27,7 @@ from handlers.commands import (
     channels_chart_command, segments_chart_command, compare_channels_command,
     status_command
 )
+from handlers.callbacks import button_callback_handler, message_handler
 from handlers.schedule import setup_scheduler
 from services.analytics import AnalyticsService
 from utils.error_handler import error_handler
@@ -142,6 +143,13 @@ def main() -> None:
     application.add_handler(CommandHandler("channel", channel_command))
     application.add_handler(CommandHandler("reserves", reserves_command))
     application.add_handler(CommandHandler("status", status_command))
+    
+    # Обработчики кнопок и callback'ов
+    from telegram.ext import CallbackQueryHandler
+    application.add_handler(CallbackQueryHandler(button_callback_handler))
+    
+    # Обработчик текстовых сообщений (кнопки меню)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     
     # Обработчик неизвестных команд
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
