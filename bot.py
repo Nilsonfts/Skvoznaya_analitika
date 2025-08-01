@@ -25,7 +25,7 @@ from handlers.commands import (
     segments_command, managers_command, update_command, forecast_command,
     alerts_command, test_metrika_command, channel_command, reserves_command,
     channels_chart_command, segments_chart_command, compare_channels_command,
-    status_command
+    status_command, test_google_sheets_command, test_all_connections_command
 )
 from handlers.callbacks import button_callback_handler, message_handler
 from handlers.schedule import setup_scheduler
@@ -109,6 +109,8 @@ def check_admin(func):
 update_command = check_admin(update_command)
 forecast_command = check_admin(forecast_command)
 test_metrika_command = check_admin(test_metrika_command)
+test_google_sheets_command = check_admin(test_google_sheets_command)
+test_all_connections_command = check_admin(test_all_connections_command)
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик неизвестных команд"""
@@ -143,6 +145,8 @@ def main() -> None:
     application.add_handler(CommandHandler("channel", channel_command))
     application.add_handler(CommandHandler("reserves", reserves_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CommandHandler("test_sheets", test_google_sheets_command))
+    application.add_handler(CommandHandler("test_all", test_all_connections_command))
     
     # Обработчики кнопок и callback'ов
     from telegram.ext import CallbackQueryHandler

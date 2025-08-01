@@ -412,6 +412,149 @@ async def test_metrika_command(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error(f"Error in test_metrika_command: {e}")
         await update.message.reply_text(f"{EMOJI['error']} Ошибка при проверке Яндекс.Метрики")
 
+async def test_google_sheets_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /test_sheets - проверка соединения с Google Sheets (только админы)"""
+    try:
+        await update.message.reply_text(f"{EMOJI['clock']} Проверяю соединение с Google Sheets...")
+        
+        from services.google_sheets import GoogleSheetsService
+        sheets = GoogleSheetsService()
+        
+        test_result = sheets.test_connection()
+        
+        if test_result['success']:
+            worksheets_info = ""
+            if test_result.get('worksheets'):
+                worksheets_info = f"• Листы: {', '.join(test_result['worksheets'])}"
+                if test_result['worksheets_count'] > 5:
+                    worksheets_info += f" (и ещё {test_result['worksheets_count'] - 5})"
+            
+            report_text = f"""
+{EMOJI['success']} **GOOGLE SHEETS ПОДКЛЮЧЕН**
+
+• Таблица: {test_result.get('title', 'Неизвестно')}
+• ID: {test_result['spreadsheet_id'][:20]}...
+• Листов: {test_result['worksheets_count']}
+{worksheets_info}
+• Аутентификация: {test_result['authentication']}
+• Уровень доступа: {test_result['access_level']}
+• Время ответа: {test_result['response_time']}мс
+"""
+        else:
+            report_text = f"""
+{EMOJI['warning']} **GOOGLE SHEETS НЕДОСТУПЕН**
+
+• Ошибка: {test_result['error']}
+• Аутентификация: {test_result.get('authentication', 'нет')}
+• Система работает в режиме fallback
+• Время проверки: {test_result['response_time']}мс
+
+💡 Для подключения настройте GOOGLE_CREDENTIALS_JSON
+"""
+        
+        await update.message.reply_text(report_text, parse_mode='Markdown')
+        
+    except Exception as e:
+        logger.error(f"Error in test_google_sheets_command: {e}")
+        await update.message.reply_text(f"{EMOJI['error']} Ошибка при проверке Google Sheets")
+
+async def test_all_connections_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /test_all - проверка всех подключений (только админы)"""
+    try:
+        await update.message.reply_text(f"{EMOJI['clock']} Проверяю все подключения...")
+        
+        # Тестируем все сервисы
+        results = {}
+        
+        # Google Sheets
+        from services.google_sheets import GoogleSheetsService
+        sheets = GoogleSheetsService()
+        results['sheets'] = sheets.test_connection()
+        
+        # Yandex Metrika
+        from services.metrika import MetrikaService
+        metrika = MetrikaService()
+        results['metrika'] = await metrika.test_connection()
+        
+        # PostgreSQL
+        from services.database import DatabaseService
+        try:
+            db = DatabaseService()
+            # Простой тест подключения
+            test_query = "SELECT 1 as test"
+            db_result = await db.execute_query(test_query)
+            results['postgres'] = {
+                'success': True,
+                'service': 'PostgreSQL',
+                'status': 'Подключен',
+                'tables_count': 'N/A'
+            }
+        except Exception as e:
+            results['postgres'] = {
+                'success': False,
+                'service': 'PostgreSQL', 
+                'error': str(e)
+            }
+        
+        # Redis
+        from services.cache import CacheService
+        try:
+            cache = CacheService()
+            await cache.set('test_connection', 'ok', 10)
+            test_val = await cache.get('test_connection')
+            results['redis'] = {
+                'success': test_val == 'ok',
+                'service': 'Redis',
+                'status': 'Подключен' if test_val == 'ok' else 'Ошибка'
+            }
+        except Exception as e:
+            results['redis'] = {
+                'success': False,
+                'service': 'Redis',
+                'error': str(e)
+            }
+        
+        # Формируем отчёт
+        report_lines = [f"{EMOJI['gear']} **СТАТУС ВСЕХ ПОДКЛЮЧЕНИЙ**\n"]
+        
+        for service_key, result in results.items():
+            service_name = result['service']
+            if result['success']:
+                status_emoji = EMOJI['success']
+                status_text = "Работает"
+                if service_key == 'metrika' and 'yesterday_visits' in result:
+                    details = f"({result['yesterday_visits']} визитов вчера)"
+                elif service_key == 'sheets' and 'worksheets_count' in result:
+                    details = f"({result['worksheets_count']} листов)"
+                else:
+                    details = ""
+            else:
+                status_emoji = EMOJI['error'] 
+                status_text = "Недоступен"
+                details = f"({result.get('error', 'Неизвестная ошибка')[:50]}...)"
+            
+            report_lines.append(f"{status_emoji} **{service_name}**: {status_text} {details}")
+        
+        # Общая статистика
+        working_count = sum(1 for r in results.values() if r['success'])
+        total_count = len(results)
+        
+        report_lines.append(f"\n📊 **Итого**: {working_count}/{total_count} сервисов работают")
+        
+        if working_count == total_count:
+            report_lines.append(f"{EMOJI['party']} Все системы функционируют нормально!")
+        elif working_count > 0:
+            report_lines.append(f"{EMOJI['warning']} Система работает с ограничениями")
+        else:
+            report_lines.append(f"{EMOJI['error']} Критические ошибки подключений")
+        
+        report_text = '\n'.join(report_lines)
+        await update.message.reply_text(report_text, parse_mode='Markdown')
+        
+    except Exception as e:
+        logger.error(f"Error in test_all_connections_command: {e}")
+        await update.message.reply_text(f"{EMOJI['error']} Ошибка при проверке подключений")
+
 async def reserves_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /reserves - обновление данных RestoPlace (только админы)"""
     user_id = update.effective_user.id

@@ -17,7 +17,8 @@ from handlers.commands import (
     managers_command, update_command, forecast_command,
     alerts_command, reserves_command, channels_chart_command,
     segments_chart_command, compare_channels_command,
-    status_command, test_metrika_command
+    status_command, test_metrika_command, test_google_sheets_command,
+    test_all_connections_command
 )
 
 logger = logging.getLogger(__name__)
@@ -261,6 +262,48 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 'effective_user': update.effective_user
             })()
             await alerts_command(fake_update, context)
+            
+        elif data == "admin_test_sheets":
+            if user_id not in ADMIN_IDS:
+                await query.edit_message_text(f"{EMOJI['error']} Доступ запрещён.")
+                return
+                
+            await query.edit_message_text("🧪 Тестирую подключение к Google Sheets...")
+            fake_update = type('FakeUpdate', (), {
+                'message': type('FakeMessage', (), {
+                    'reply_text': lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+                })(),
+                'effective_user': update.effective_user
+            })()
+            await test_google_sheets_command(fake_update, context)
+            
+        elif data == "admin_test_metrika":
+            if user_id not in ADMIN_IDS:
+                await query.edit_message_text(f"{EMOJI['error']} Доступ запрещён.")
+                return
+                
+            await query.edit_message_text("🔍 Тестирую подключение к Яндекс.Метрике...")
+            fake_update = type('FakeUpdate', (), {
+                'message': type('FakeMessage', (), {
+                    'reply_text': lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+                })(),
+                'effective_user': update.effective_user
+            })()
+            await test_metrika_command(fake_update, context)
+            
+        elif data == "admin_test_all":
+            if user_id not in ADMIN_IDS:
+                await query.edit_message_text(f"{EMOJI['error']} Доступ запрещён.")
+                return
+                
+            await query.edit_message_text("🔧 Тестирую все подключения...")
+            fake_update = type('FakeUpdate', (), {
+                'message': type('FakeMessage', (), {
+                    'reply_text': lambda text, **kwargs: query.edit_message_text(text, **kwargs)
+                })(),
+                'effective_user': update.effective_user
+            })()
+            await test_all_connections_command(fake_update, context)
             
         # === ПОМОЩЬ ===
         elif data == "help_menu":

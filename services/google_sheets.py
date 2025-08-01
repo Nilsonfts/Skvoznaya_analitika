@@ -22,6 +22,7 @@ class GoogleSheetsService:
             # Пытаемся инициализировать Google Sheets
             self.gc = None
             self.spreadsheet = None
+            self.spreadsheet_id = SPREADSHEET_ID
             
             # Проверяем наличие JSON в переменной окружения
             if GOOGLE_CREDENTIALS_JSON:
@@ -478,3 +479,82 @@ class GoogleSheetsService:
         except Exception as e:
             logger.error(f"Ошибка создания резервной копии: {e}")
             return False
+    
+    def test_connection(self) -> Dict[str, Any]:
+        """Тестирование соединения с Google Sheets"""
+        start_time = datetime.now()
+        
+        try:
+            result = {
+                'success': False,
+                'service': 'Google Sheets',
+                'spreadsheet_id': SPREADSHEET_ID,
+                'error': None,
+                'response_time': 0,
+                'worksheets_count': 0,
+                'authentication': 'none',
+                'access_level': 'none'
+            }
+            
+            # Проверяем инициализацию сервиса
+            if not self.gc:
+                result['error'] = 'Сервис не инициализирован - работает в режиме fallback'
+                result['response_time'] = int((datetime.now() - start_time).total_seconds() * 1000)
+                return result
+            
+            # Проверяем доступ к таблице
+            if not self.spreadsheet:
+                result['error'] = 'Не удалось открыть таблицу - проверьте SPREADSHEET_ID'
+                result['response_time'] = int((datetime.now() - start_time).total_seconds() * 1000)
+                return result
+            
+            # Проверяем аутентификацию
+            if GOOGLE_CREDENTIALS_JSON:
+                result['authentication'] = 'environment_variable'
+            elif os.path.exists(GOOGLE_CREDENTIALS_FILE):
+                result['authentication'] = 'service_account_file'
+            
+            # Получаем информацию о таблице
+            spreadsheet_info = self.spreadsheet.get()
+            result['title'] = spreadsheet_info.get('properties', {}).get('title', 'Неизвестно')
+            
+            # Получаем список листов
+            worksheets = self.spreadsheet.worksheets()
+            result['worksheets_count'] = len(worksheets)
+            result['worksheets'] = [ws.title for ws in worksheets[:5]]  # Первые 5 листов
+            
+            # Проверяем уровень доступа
+            try:
+                # Пытаемся прочитать первую ячейку первого листа
+                first_worksheet = worksheets[0] if worksheets else None
+                if first_worksheet:
+                    first_worksheet.acell('A1')
+                    result['access_level'] = 'read'
+                    
+                    # Проверяем возможность записи (создаём тестовую ячейку)
+                    test_cell = f"_test_{datetime.now().strftime('%H%M%S')}"
+                    first_worksheet.update('Z1000', test_cell)
+                    # Если дошли сюда, значит запись работает
+                    result['access_level'] = 'read_write'
+                    # Удаляем тестовую запись
+                    first_worksheet.update('Z1000', '')
+                    
+            except Exception as e:
+                logger.warning(f"Проверка доступа к листу: {e}")
+                result['access_level'] = 'limited'
+            
+            result['success'] = True
+            result['response_time'] = int((datetime.now() - start_time).total_seconds() * 1000)
+            
+            return result
+            
+        except Exception as e:
+            result = {
+                'success': False,
+                'service': 'Google Sheets',
+                'error': str(e),
+                'response_time': int((datetime.now() - start_time).total_seconds() * 1000),
+                'authentication': 'error'
+            }
+            logger.error(f"Ошибка тестирования Google Sheets: {e}")
+            return result

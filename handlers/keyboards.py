@@ -108,6 +108,13 @@ def get_admin_menu():
             InlineKeyboardButton("📊 Статус системы", callback_data="admin_status")
         ],
         [
+            InlineKeyboardButton("🧪 Тест Google Sheets", callback_data="admin_test_sheets"),
+            InlineKeyboardButton("🔍 Тест Яндекс.Метрики", callback_data="admin_test_metrika")
+        ],
+        [
+            InlineKeyboardButton("🔧 Тест всех подключений", callback_data="admin_test_all")
+        ],
+        [
             InlineKeyboardButton("🔙 Назад", callback_data="main_menu")
         ]
     ]
